@@ -1,0 +1,195 @@
+##################################################################
+##################################################################
+# Trajetorias ARI 
+
+##################################################################
+##################################################################
+# Limpar área de trabalho
+remove(list=ls())
+
+# Defining the working directory
+setwd("\\\\SBSB2\\dpti\\Usuarios\\Bianca\\Bruno")
+
+seqregclass <- read.csv(file="Base reguladores novos codigos sem mandato exercicio reduz.csv", 
+                        header=TRUE, sep=";", dec=",", fill=TRUE, na.strings="")
+
+library(dplyr)
+
+seqregclass <- seqregclass %>%
+  mutate_each(funs(label = ifelse(. == "2Spub", "Politically affiliated, public servant",
+                           ifelse(. == "2Spriv","Politically affiliated, private employee",
+                           ifelse(. == "2Npub", "Not affiliated, public servant",
+                           ifelse(. == "2Npriv","Not affiliated, private employee", "NA")))) ) ,
+              c(Tminus5, Tminus4, Tminus3, Tminus2, Tminus1, Tplus1, Tplus2, Tplus3, Tplus4, Tplus5) )
+
+
+# seqreg.labels <- c(
+#   "NA"	,
+#   "Politically affiliated, public servant"	,
+#   "Politically affiliated, private employee"	,
+#   "Not affiliated, public servant"	,
+#   "Not affiliated, private employee"	)
+# 
+# seqreg.scode <- c(
+#   "nao_aplicavel"	,
+#   "2Spub"	,
+#   "2Spriv"	,
+#   "2Npub"	,
+#   "2Npriv"	)
+
+# conferindo as sequencias na mão ...
+sequencias <- paste(seqregclass$Tminus5,
+                    seqregclass$Tminus4,
+                    seqregclass$Tminus3,
+                    seqregclass$Tminus2,
+                    seqregclass$Tminus1,
+                    seqregclass$Tplus1,
+                    seqregclass$Tplus2,
+                    seqregclass$Tplus3,
+                    seqregclass$Tplus4,
+                    seqregclass$Tplus5, sep = "-" )
+x <- as.data.frame(table(sequencias)) 
+View(x[order(x$Freq, decreasing = T),])
+
+library(TraMineR)
+
+seqreg.seq <- seqdef(seqregclass, (dim(seqregclass)[2]-9):dim(seqregclass)[2] ) # 2:11 ,
+# states = seqreg.scode,
+# labels = seqreg.labels)
+X11(width = 15, height = 10) 
+par(mfrow=c(1,2))
+#ajeitar a legenda, está ruim!
+seqfplot(seqreg.seq, with.legend = TRUE, 
+         main = "10 most common sequencies",
+         xtlab = c("t-5", "t-4", "t-3", "t-2", "t-1", 
+                   "t+1", "t+2", "t+3", "t+4", "t+5"))
+
+seqdplot(seqreg.seq, with.legend = TRUE, 
+         main = "Possible states, year by year",
+         xtlab = c("t-5", "t-4", "t-3", "t-2", "t-1", 
+                   "t+1", "t+2", "t+3", "t+4", "t+5"))
+
+#colocar os labels ao invés dos códigos
+print(seqtab(seqreg.seq))
+
+write.csv2(print(seqtab(seqreg.seq)), "seqtab.csv")
+
+
+
+library(vcd)
+
+# Tipos e agências
+ctagencia.labels <- c("Agency\n", "Types of Trajectory\n")
+
+seqregclass <- seqregclass%>%
+  mutate(pattern1 = ifelse(pattern == "Public to private, not affilliated", "Pub-Priv, NOT",
+                    ifelse(pattern == "Public to private, affilliated"    , "Pub-Priv, YES",
+                    ifelse(pattern == "Always public, not affilliated"    , "Pub, NOT",
+                    ifelse(pattern == "Always public, affilliated"        , "Pub, YES",
+                    ifelse(pattern == "Always private, not affilliated"   , "Priv, NOT", "Others"))))))
+
+ctagencia <- table(seqregclass$Agencia, seqregclass$pattern1, dnn = (ctagencia.labels))
+
+ctagencia <- rbind(ctagencia, "ANA" = ctagencia[1,])
+ctagencia[1,] <- c("ANP" = ctagencia[6,]) ; row.names(ctagencia)[1] <- "ANP"
+ctagencia <- ctagencia[-6,]
+
+X11(width = 45, height = 45) 
+mosaic(ctagencia, shade=T, legend=TRUE,
+       gp = shading_hcl(HairEyeColor, interpolate = c(0.5, 1.5) ) ,
+       labeling_args=list(set_varnames = list(A = "Agency\n",B = "Types of Trajectory\n"),
+                          gp_labels=(gpar(fontsize=9)) ) )
+
+chisagencia <-  chisq.test(ctagencia)
+
+chisagencia$residuals
+
+colnames(chisagencia$residuals)
+tabela <- data.frame("Agência" = rownames(chisagencia$residuals),
+                     "Outros" = paste(chisagencia$obs[,1],
+                                      round(chisagencia$exp[,1],2),
+                                      paste0("(",round(chisagencia$stdres[,1],2),")"),
+                                      sep = "\n"),
+                     "Always private, not affilliated" = paste(chisagencia$obs[,2],
+                                                               round(chisagencia$exp[,2],2),
+                                                               paste0("(",round(chisagencia$stdres[,2],2),")"),
+                                                               sep = "\n"),
+                     "Always public, affilliated" = paste(chisagencia$obs[,3],
+                                                          round(chisagencia$exp[,3],2),
+                                                          paste0("(",round(chisagencia$stdres[,3],2),")"),
+                                                          sep = "\n"),
+                     "Always public, not affilliated" = paste(chisagencia$obs[,4],
+                                                              round(chisagencia$exp[,4],2),
+                                                              paste0("(",round(chisagencia$stdres[,4],2),")"),
+                                                              sep = "\n"),
+                     "Public to private, affilliated" = paste(chisagencia$obs[,5],
+                                                              round(chisagencia$exp[,5],2),
+                                                              paste0("(",round(chisagencia$stdres[,5],2),")"),
+                                                              sep = "\n"),
+                     "Public to private, not affilliated" = paste(chisagencia$obs[,6],
+                                                                  round(chisagencia$exp[,6],2),
+                                                                  paste0("(",round(chisagencia$stdres[,6],2),")"),
+                                                                  sep = "\n"),
+                     check.names=FALSE )
+write.csv2(tabela, "chisagencia.csv", row.names = F)
+
+
+# Setor privado e politização
+ctprivpol.labels <- c("Political", "After")
+ctprivpol <- table(seqregclass$politico, seqregclass$depois, dnn = (ctprivpol.labels))
+mosaic(ctprivpol, shade=TRUE, legend=TRUE,
+       gp = shading_hcl(HairEyeColor, interpolate = c(0.25, 0.5) ) )
+chisprivpol <-  chisq.test(ctprivpol)
+
+chisprivpol$residuals
+
+colnames(chisprivpol$residuals)
+tabela <- data.frame("Political" = rownames(chisprivpol$residuals),
+                     "Private" = paste(chisprivpol$obs[,1],
+                                       round(chisprivpol$exp[,1],2),
+                                       paste0("(",round(chisprivpol$stdres[,1],2),")"),
+                                       sep = "\n"),
+                     "Public" = paste(chisprivpol$obs[,2],
+                                      round(chisprivpol$exp[,2],2),
+                                      paste0("(",round(chisprivpol$stdres[,2],2),")"),
+                                      sep = "\n") )
+
+write.csv2(tabela, "chisprivpol.csv", row.names = F)
+
+
+# Setor privado e público
+ctprivpub.labels <- c("Before", "After")
+ctprivpub <- table(seqregclass$antes, seqregclass$depois, dnn = (ctprivpub.labels))
+mosaic(ctprivpub, shade=TRUE, legend=TRUE,
+       gp = shading_hcl(HairEyeColor, interpolate = c(0.5, 1.5) ) )
+chisprivpub <-  chisq.test(ctprivpub)
+
+chisprivpub$residuals
+
+colnames(chisprivpub$residuals)
+tabela <- data.frame("Before" = c("Private", "Public"),
+                     "Private" = paste(chisprivpub$obs[,1],
+                                       round(chisprivpub$exp[,1],2),
+                                       paste0("(",round(chisprivpub$stdres[,1],2),")"),
+                                       sep = "\n"),
+                     "Public" = paste(chisprivpub$obs[,2],
+                                      round(chisprivpub$exp[,2],2),
+                                      paste0("(",round(chisprivpub$stdres[,2],2),")"),
+                                      sep = "\n") )
+
+write.csv2(tabela, "chisprivpub.csv", row.names = F)
+
+# Modelo probit
+myprobit <- glm(depois ~ antes + politico, family = binomial(link = "probit"), 
+                data = seqregclass) 
+summary(myprobit2)
+write.csv2(summary.glm(myprobit)$coefficients, "myprobit.csv")
+
+
+# Modelo restrito aos funças
+seqregclass.pub <- subset(seqregclass, antes=="pub")
+
+myprobit2 <- glm(depois ~ politico, family = binomial(link = "probit"), 
+                 data = seqregclass.pub) 
+summary(myprobit2)
+write.csv2(summary.glm(myprobit2)$coefficients, "myprobit2.csv")
