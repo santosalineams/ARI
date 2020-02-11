@@ -4,11 +4,11 @@
 
 ##################################################################
 ##################################################################
-# Limpar área de trabalho
+# Limpar ?rea de trabalho
 remove(list=ls())
 
 # Defining the working directory
-setwd("\\\\SBSB2\\dpti\\Usuarios\\Bianca\\Bruno")
+setwd("/Users/santosalineams/Downloads/Para aline")
 
 seqregclass <- read.csv(file="Base reguladores novos codigos sem mandato exercicio reduz.csv", 
                         header=TRUE, sep=";", dec=",", fill=TRUE, na.strings="")
@@ -37,7 +37,7 @@ seqregclass <- seqregclass %>%
 #   "2Npub"	,
 #   "2Npriv"	)
 
-# conferindo as sequencias na mão ...
+# conferindo as sequencias na m?o ...
 sequencias <- paste(seqregclass$Tminus5,
                     seqregclass$Tminus4,
                     seqregclass$Tminus3,
@@ -58,7 +58,7 @@ seqreg.seq <- seqdef(seqregclass, (dim(seqregclass)[2]-9):dim(seqregclass)[2] ) 
 # labels = seqreg.labels)
 X11(width = 15, height = 10) 
 par(mfrow=c(1,2))
-#ajeitar a legenda, está ruim!
+#ajeitar a legenda, est? ruim!
 seqfplot(seqreg.seq, with.legend = TRUE, 
          main = "10 most common sequencies",
          xtlab = c("t-5", "t-4", "t-3", "t-2", "t-1", 
@@ -69,16 +69,55 @@ seqdplot(seqreg.seq, with.legend = TRUE,
          xtlab = c("t-5", "t-4", "t-3", "t-2", "t-1", 
                    "t+1", "t+2", "t+3", "t+4", "t+5"))
 
-#colocar os labels ao invés dos códigos
+#colocar os labels ao inv?s dos c?digos
 print(seqtab(seqreg.seq))
 
 write.csv2(print(seqtab(seqreg.seq)), "seqtab.csv")
 
+#ajeitando o algoritmo de pareamento
+submat <- seqsubm(seqreg.seq, method = "TRATE")
+dist.om1 <- seqdist(seqreg.seq, method = "OM",indel=1,sm=submat)
 
+library(cluster)
+
+#Ward cluster
+clusterward1 <- agnes(dist.om1, diss = TRUE, method = "ward")
+
+#plotando o dendograma
+plot(clusterward1, ask=TRUE)
+
+#se quisermos fazer os ret?ngulos?
+
+plot(as.dendrogram(clusterward1))
+rect.hclust(clusterward1 , k = 5)
+
+cl1.5 <- cutree(clusterward1, k = 5)
+seqdplot(seqreg.seq, group = cl1.5, with.legend=T, main = "Distribution of states, year by year")
+
+seqfplot(seqreg.seq, group = cl1.5, with.legend=T, main = "Most common sequencies")
+
+seqregclassoma <- (seqregclass)
+seqregclassoma$oma <- (cl1.5)
+edit seqregclassoma
+
+seqregclassoma <- seqregclassoma %>%
+  mutate(omalabel = ifelse(oma == "1", "Public to private, not affiliated",
+                           ifelse(oma == "2","Always public, affilliated",
+                           ifelse(oma == "3", "Public to private, affiliated",
+                           ifelse(oma == "4","Always public, not affiliated", 
+                           ifelse(oma == "5","Always private, not affiliated")))))
+
+write.csv2(seqregclassoma,"Base reguladores novos codigos sem mandato exercicio reduz com OMA.csv", row.names=F)
+
+#crosstab do oma com pattern
+
+comparison <- table(seqregclassoma$pattern,seqregclassoma$omalabel)
+
+write.csv2(comparison,"comparison between classifications.csv")
 
 library(vcd)
 
-# Tipos e agências
+# Tipos e ag?ncias
 ctagencia.labels <- c("Agency\n", "Types of Trajectory\n")
 
 seqregclass <- seqregclass%>%
@@ -105,7 +144,7 @@ chisagencia <-  chisq.test(ctagencia)
 chisagencia$residuals
 
 colnames(chisagencia$residuals)
-tabela <- data.frame("Agência" = rownames(chisagencia$residuals),
+tabela <- data.frame("Ag?ncia" = rownames(chisagencia$residuals),
                      "Outros" = paste(chisagencia$obs[,1],
                                       round(chisagencia$exp[,1],2),
                                       paste0("(",round(chisagencia$stdres[,1],2),")"),
@@ -134,7 +173,7 @@ tabela <- data.frame("Agência" = rownames(chisagencia$residuals),
 write.csv2(tabela, "chisagencia.csv", row.names = F)
 
 
-# Setor privado e politização
+# Setor privado e politiza??o
 ctprivpol.labels <- c("Political", "After")
 ctprivpol <- table(seqregclass$politico, seqregclass$depois, dnn = (ctprivpol.labels))
 mosaic(ctprivpol, shade=TRUE, legend=TRUE,
@@ -157,7 +196,7 @@ tabela <- data.frame("Political" = rownames(chisprivpol$residuals),
 write.csv2(tabela, "chisprivpol.csv", row.names = F)
 
 
-# Setor privado e público
+# Setor privado e p?blico
 ctprivpub.labels <- c("Before", "After")
 ctprivpub <- table(seqregclass$antes, seqregclass$depois, dnn = (ctprivpub.labels))
 mosaic(ctprivpub, shade=TRUE, legend=TRUE,
@@ -179,17 +218,17 @@ tabela <- data.frame("Before" = c("Private", "Public"),
 
 write.csv2(tabela, "chisprivpub.csv", row.names = F)
 
-# Modelo probit
-myprobit <- glm(depois ~ antes + politico, family = binomial(link = "probit"), 
+# Modelo logit
+mylogit <- glm(depois ~ antes + politico, family = binomial(link = "logit"), 
                 data = seqregclass) 
-summary(myprobit2)
-write.csv2(summary.glm(myprobit)$coefficients, "myprobit.csv")
+summary(mylogit)
+write.csv2(summary.glm(mylogit)$coefficients, "mylogit.csv")
 
 
-# Modelo restrito aos funças
+# Modelo restrito aos fun?as
 seqregclass.pub <- subset(seqregclass, antes=="pub")
 
-myprobit2 <- glm(depois ~ politico, family = binomial(link = "probit"), 
+mylogit2 <- glm(depois ~ politico, family = binomial(link = "logit"), 
                  data = seqregclass.pub) 
-summary(myprobit2)
-write.csv2(summary.glm(myprobit2)$coefficients, "myprobit2.csv")
+summary(mylogit2)
+write.csv2(summary.glm(mylogit2)$coefficients, "mylogit2.csv")
